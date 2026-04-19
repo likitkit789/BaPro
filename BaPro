@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baccarat DNA - Fix Layout</title>
+    <style>
+        :root {
+            --bg: #121418; --card: #1e2229; --text: #d1d5db;
+            --p-color: #3b82f6; --b-color: #ef4444;
+            --win-color: #facc15; --lose-color: #64748b;
+            --accent: #facc15;
+        }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; overflow-x: hidden; }
+        .container { max-width: 1100px; margin: auto; }
+        
+        /* Fix Layout ไม่ให้เบียดกัน */
+        .grid-main { display: grid; grid-template-columns: 1.8fr 1.2fr; gap: 20px; align-items: start; }
+        
+        .panel { background: var(--card); padding: 20px; border-radius: 12px; }
+        .input-group { margin-bottom: 12px; }
+        label { font-size: 0.8rem; color: #94a3b8; display: block; margin-bottom: 5px; }
+        input { background: #0f172a; border: 1px solid #334155; color: var(--accent); padding: 10px; border-radius: 6px; width: 90%; font-size: 1rem; }
+
+        .betting-control { text-align: center; border-top: 1px solid #334155; margin-top: 20px; padding-top: 20px; }
+        .bet-now { font-size: 3rem; font-weight: bold; color: var(--accent); margin: 5px 0; }
+        .win-loss-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 15px 0; }
+        .btn-win { background: #eab308; color: #000; font-size: 1.1rem; font-weight: bold; }
+        .btn-loss { background: #334155; color: #fff; font-size: 1.1rem; font-weight: bold; }
+
+        /* DNA Layout ใหม่: บังคับขึ้นบรรทัดใหม่เมื่อเต็ม */
+        .dna-row { 
+            background: #1e293b; margin-bottom: 10px; border-radius: 8px; 
+            display: flex; align-items: flex-start; padding: 12px; 
+            min-height: 50px; /* รองรับ 2 บรรทัด */
+        }
+        .logic-label { min-width: 60px; font-weight: bold; color: #64748b; font-size: 0.75rem; margin-top: 5px; }
+        .rec-tag { font-size: 1.6rem; font-weight: 900; margin: 0 10px; width: 30px; text-align: center; margin-top: 2px; }
+        
+        /* ส่วนที่แก้เรื่องการดันขอบ */
+        .dna-grid { 
+            display: flex; 
+            flex-wrap: wrap; /* ให้ขึ้นบรรทัดใหม่ */
+            gap: 4px; 
+            flex: 1; /* กินพื้นที่ที่เหลือแต่ไม่ดันออก */
+            max-width: 100%; 
+        }
+        .dna-dot { width: 20px; height: 20px; line-height: 20px; text-align: center; font-size: 14px; background: #0f172a; border-radius: 4px; font-weight: bold; }
+        
+        .v { color: var(--win-color); border: 1px solid #454d1a; }
+        .x { color: var(--lose-color); border: 1px solid #334155; }
+        .text-p { color: var(--p-color); } .text-b { color: var(--b-color); }
+
+        .btns-main { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
+        button { border: none; border-radius: 8px; cursor: pointer; padding: 12px; transition: 0.2s; }
+        .btn-p { background: var(--p-color); color: white; font-weight: bold; }
+        .btn-b { background: var(--b-color); color: white; font-weight: bold; }
+        .btn-action { background: #475569; color: white; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="grid-main">
+        <div>
+            <div class="btns-main">
+                <button class="btn-p" onclick="record('P')">P</button>
+                <button class="btn-b" onclick="record('B')">B</button>
+                <button class="btn-action" onclick="undo()">UNDO</button>
+                <button class="btn-action" onclick="resetAll()">RESET</button>
+            </div>
+            <div class="dna-section">
+                <div class="dna-row"><div class="logic-label">SET 1</div><div class="rec-tag" id="rec1">-</div><div class="dna-grid" id="dna1"></div></div>
+                <div class="dna-row"><div class="logic-label">SET 2</div><div class="rec-tag" id="rec2">-</div><div class="dna-grid" id="dna2"></div></div>
+                <div class="dna-row"><div class="logic-label">SET 3</div><div class="rec-tag" id="rec3">-</div><div class="dna-grid" id="dna3"></div></div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="input-group"><label>ทุน</label><input type="number" id="capital" value="1000"></div>
+            <div class="input-group"><label>ไม้ 1 (ตั้งต้น)</label><input type="number" id="startBet" value="250"></div>
+            <div class="input-group"><label>เป้ากำไร %</label><input type="number" id="targetPct" value="20"></div>
+
+            <div class="betting-control">
+                <label>NEXT BET (ไม้ <span id="currentStep">1</span>)</label>
+                <div id="betDisplay" class="bet-now">250</div>
+                <div class="win-loss-btns">
+                    <button class="btn-win" onclick="handleBet('WIN')">WIN</button>
+                    <button class="btn-loss" onclick="handleBet('LOSS')">LOSS</button>
+                </div>
+                <div style="display:flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155;">
+                    <span>กำไรสะสม:</span>
+                    <span id="profitVal" style="color:var(--win-color); font-weight:bold;">0</span>
+                </div>
+                <div style="display:flex; justify-content: space-between; padding: 10px 0;">
+                    <span>เปอร์เซ็นต์กำไร:</span>
+                    <span id="percentVal" style="color:var(--text); font-weight:bold;">0%</span>
+                </div>
+                <button style="background:transparent; border:1px solid #475569; color:#94a3b8; width:100%; margin-top:15px;" onclick="resetMoney()">รีเซ็ตเดินเงิน</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let history = [];
+    let winLevel = 0; // 0=ไม้1, 1=ไม้2, 2=ไม้3
+    let currentProfit = 0;
+    let targetAlerted = false;
+
+    function getStartBet() { return parseFloat(document.getElementById('startBet').value) || 0; }
+
+    function handleBet(status) {
+        const start = getStartBet();
+        const currentBet = start * Math.pow(2, winLevel);
+
+        if (status === 'WIN') {
+            currentProfit += currentBet;
+            winLevel++;
+            // แก้ไข: ชนะไม้ 3 (winLevel เป็น 3) ให้กลับไปเริ่มไม้ 1 ในตาที่ 4
+            if (winLevel >= 3) {
+                winLevel = 0;
+            }
+        } else {
+            currentProfit -= currentBet;
+            // แพ้ให้กลับไปเริ่มไม้ 1 ทันที
+            winLevel = 0;
+        }
+        
+        checkGoal();
+        updateUI();
+    }
+
+    function updateUI() {
+        const start = getStartBet();
+        const nextBet = start * Math.pow(2, winLevel);
+        
+        document.getElementById('betDisplay').innerText = nextBet.toLocaleString();
+        document.getElementById('currentStep').innerText = winLevel + 1;
+        document.getElementById('profitVal').innerText = currentProfit.toLocaleString();
+        
+        const cap = parseFloat(document.getElementById('capital').value) || 1;
+        document.getElementById('percentVal').innerText = ((currentProfit / cap) * 100).toFixed(2) + "%";
+
+        // Render DNA
+        for (let l = 1; l <= 3; l++) {
+            let dnaHTML = "";
+            for (let i = 1; i < history.length; i++) {
+                let p = getPred(l, i - 1, history[i-1]);
+                if (p) dnaHTML += (p === history[i]) ? '<div class="dna-dot v">✓</div>' : '<div class="dna-dot x">✕</div>';
+            }
+            document.getElementById(`dna${l}`).innerHTML = dnaHTML;
+            let next = getPred(l, history.length - 1, history[history.length-1]);
+            document.getElementById(`rec${l}`).innerHTML = next ? (next === 'P' ? '<span class="text-p">P</span>' : '<span class="text-b">B</span>') : '-';
+        }
+    }
+
+    function record(val) { history.push(val); updateUI(); }
+    function undo() { history.pop(); updateUI(); }
+    function resetMoney() { currentProfit = 0; winLevel = 0; targetAlerted = false; updateUI(); }
+    function resetAll() { if(confirm("ล้างทั้งหมด?")) { history = []; resetMoney(); } }
+    function getPred(l, i, last) { 
+        if (!last) return null;
+        if (l === 1) return last;
+        if (l === 2) return last === 'P' ? 'B' : 'P';
+        if (l === 3) return (Math.floor(i / 2) % 2 === 0) ? 'P' : 'B';
+    }
+    function checkGoal() {
+        const cap = parseFloat(document.getElementById('capital').value) || 1;
+        const target = parseFloat(document.getElementById('targetPct').value) || 0;
+        const currentPct = (currentProfit / cap) * 100;
+        if (currentPct >= target && !targetAlerted && target > 0) {
+            alert(`🎯 เป้าหมายสำเร็จ!\nกำไร: ${currentProfit.toLocaleString()} (${currentPct.toFixed(2)}%)`);
+            targetAlerted = true;
+        }
+    }
+</script>
+</body>
+</html>
